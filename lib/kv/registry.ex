@@ -4,8 +4,8 @@ defmodule KV.Registry do
     @doc """
     Starts the registry.
     """
-    def start_link(opts \\ []) do
-        GenServer.start_link(__MODULE__, :ok, opts)
+    def start_link(event_manager, opts \\ []) do
+        GenServer.start_link(__MODULE__, event_manager, opts)
     end
 
     @doc """
@@ -35,37 +35,43 @@ defmodule KV.Registry do
 
     ## Server callbacks
     
-    def init(:ok) do
+    def init(event_manager) do
         names = HashDict.new
         refs = HashDict.new
-        {:ok, {names, refs}}
+        {:ok, %{names: names, refs: refs, events: event_manager}}
     end
 
-    def handle_call({:lookup, name}, _from, {names, _} = state) do
-        {:reply, HashDict.fetch(names, name), state}
+    def handle_call({:lookup, name}, _from, state) do
+        {:reply, HashDict.fetch(state.names, name), state}
     end
     
     def handle_call(:stop, _from, state) do
         {:stop, :normal, :ok, state} 
     end
 
-    def handle_cast({:create, name}, {names, refs} = state) do
-        if HashDict.has_key?(names, name) do
+    def handle_cast({:create, name}, state) do
+        if HashDict.has_key?(state.names, name) do
             {:noreply, state}
         else
             {:ok, bucket_pid} = KV.Bucket.start_link()
             ref = Process.monitor(bucket_pid)
-            refs2 = HashDict.put(refs, ref, name)
-            names2 = HashDict.put(names, name, bucket_pid)
-            {:noreply, {names2, refs2}}
+            refs2 = HashDict.put(state.refs, ref, name)
+            names2 = HashDict.put(state.names, name, bucket_pid)
+            GenEvent.sync_notify(state.events, {:create, name, bucket_pid})
+            {:noreply, %{state | names: names2, refs: refs2}}
         end
     end
 
-    def handle_info({:DOWN, ref, :process, _pid, :normal}, {names, refs}) do
-        name = HashDict.get(refs, ref)
-        refs2 = HashDict.delete(refs, ref)
-        names2 = HashDict.delete(names, name)
-        {:noreply, {names2, refs2}}
+    def handle_info({:DOWN, ref, :process, pid, :normal}, state) do
+        name = HashDict.get(state.refs, ref)
+        refs2 = HashDict.delete(state.refs, ref)
+        names2 = HashDict.delete(state.names, name)
+        GenEvent.sync_notify(state.events, {:exit, name, pid})
+        {:noreply, %{state | names: names2, refs: refs2}}
+    end
+
+    def handle_info(_msg, state) do
+        {:noreply, state}
     end
 
     def terminate(_reason, _state) do
