@@ -16,5 +16,12 @@ defmodule KV.RegistryTest do
         KV.Bucket.put(bucket, task, :in_progress)
         assert KV.Bucket.get(bucket, task) === :in_progress
     end
+
+    test "removes buckets on exit", %{registry: registry} do
+        KV.Registry.create(registry, "shopping")
+        {:ok, bucket} = KV.Registry.lookup(registry, "shopping")
+        Agent.stop(bucket)
+        assert KV.Registry.lookup(registry, "shopping") === :error
+    end
 end
 

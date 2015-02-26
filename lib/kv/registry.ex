@@ -1,4 +1,6 @@
 defmodule KV.Registry do
+    ## Client API
+
     @doc """
     Starts the registry.
     """
@@ -23,23 +25,51 @@ defmodule KV.Registry do
         GenServer.cast(server, {:create, name})
     end
 
+    @doc """
+    Stops the server.
+    """
+    def stop(server) do
+        GenServer.call(server, :stop)
+    end
+
+
     ## Server callbacks
+    
     def init(:ok) do
         names = HashDict.new
-        {:ok, names}
+        refs = HashDict.new
+        {:ok, {names, refs}}
     end
 
-    def handle_call({:lookup, name}, _from, names) do
-        {:reply, HashDict.fetch(names, name), names}
+    def handle_call({:lookup, name}, _from, {names, _} = state) do
+        {:reply, HashDict.fetch(names, name), state}
+    end
+    
+    def handle_call(:stop, _from, state) do
+        {:stop, :normal, :ok, state} 
     end
 
-    def handle_cast({:create, name}, names) do
+    def handle_cast({:create, name}, {names, refs} = state) do
         if HashDict.has_key?(names, name) do
-            {:noreply, names}
+            {:noreply, state}
         else
-            {:ok, bucket} = KV.Bucket.start_link()
-            {:noreply, HashDict.put(names, name, bucket)}
+            {:ok, bucket_pid} = KV.Bucket.start_link()
+            ref = Process.monitor(bucket_pid)
+            refs2 = HashDict.put(refs, ref, name)
+            names2 = HashDict.put(names, name, bucket_pid)
+            {:noreply, {names2, refs2}}
         end
+    end
+
+    def handle_info({:DOWN, ref, :process, _pid, :normal}, {names, refs}) do
+        name = HashDict.get(refs, ref)
+        refs2 = HashDict.delete(refs, ref)
+        names2 = HashDict.delete(names, name)
+        {:noreply, {names2, refs2}}
+    end
+
+    def terminate(_reason, _state) do
+        :ok
     end
 end
 
