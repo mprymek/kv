@@ -13,7 +13,7 @@ defmodule KV.Supervisor do
         IO.puts "Starting KV.Supervisor"
         children = [
             worker(GenEvent, [[name: @manager_name]]),
-            worker(KV.Bucket.Supervisor, [[name: @bucket_sup_name]]),
+            supervisor(KV.Bucket.Supervisor, [[name: @bucket_sup_name]]),
             worker(KV.Registry, [@manager_name, [name: @registry_name]])
         ]
 
