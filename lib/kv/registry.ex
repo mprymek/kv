@@ -62,7 +62,7 @@ defmodule KV.Registry do
         end
     end
 
-    def handle_info({:DOWN, ref, :process, pid, :normal}, state) do
+    def handle_info({:DOWN, ref, :process, pid, _reason}, state) do
         name = HashDict.get(state.refs, ref)
         refs2 = HashDict.delete(state.refs, ref)
         names2 = HashDict.delete(state.names, name)
