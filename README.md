@@ -1,4 +1,6 @@
 KV
 ==
+Working through this:
 
-** TODO: Add description **
+http://elixir-lang.org/getting-started/mix-otp/supervisor-and-application.html
+
