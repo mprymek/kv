@@ -57,7 +57,7 @@ defmodule KV.Supervisor do
             worker(GenEvent, [[name: @manager_name]]),
 #            supervisor(KV.BucketAndRegistrySupervisor, [[name: @bucket_and_reg_sup_name]])
             supervisor(KV.Bucket.Supervisor, [[name: @bucket_sup_name]]),
-            worker(KV.Registry, [@manager_name, [name: @registry_name]])
+            worker(KV.Registry, [@manager_name, :buckets_supervisor_missing_here, [name: @registry_name]])
         ]
         IO.puts "Supervising children: #{inspect children}"
         supervise(children, strategy: :one_for_one)

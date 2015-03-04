@@ -1,10 +1,12 @@
 defmodule KV.Registry do
+    require Logger
     ## Client API
 
     @doc """
     Starts the registry.
     """
     def start_link(event_manager, buckets_supervisor, opts \\ []) do
+        Logger.debug "#{__MODULE__}.start_link(#{inspect event_manager},#{inspect buckets_supervisor},#{inspect opts})"
         GenServer.start_link(__MODULE__, {event_manager, buckets_supervisor}, opts)
     end
 
